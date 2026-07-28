@@ -75,7 +75,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       noWarnings: true,
       noCheckCertificates: true,
       preferFreeFormats: true,
-      addHeader: ["referer:youtube.com", "user-agent:googlebot"],
+      // addHeader: ["referer:youtube.com", "user-agent:googlebot"],
+      // This line pulls your proxy configuration from Vercel
+      proxy: process.env.YT_PROXY_URL,
     });
     // Structure manual and auto-generated subtitles cleanly
     const responseData: ProcessedSubtitlesResponse = {
