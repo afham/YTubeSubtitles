@@ -5,7 +5,7 @@ import os from "os";
 
 // Initialize youtube-dl-exec
 const { create: createYoutubeDl } = require("youtube-dl-exec");
-const absoluteBinaryPath = path.join(process.cwd(), "bin", "yt-dlp.exe");
+const absoluteBinaryPath = path.join(process.cwd(), "bin", "yt-dlp_linux");
 const youtubedl = createYoutubeDl(absoluteBinaryPath);
 
 interface DownloadRequestBody {

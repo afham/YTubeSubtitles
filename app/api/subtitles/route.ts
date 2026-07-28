@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 
 const { create: createYoutubeDl } = require("youtube-dl-exec");
-const absoluteBinaryPath = path.join(process.cwd(), "bin", "yt-dlp.exe");
+const absoluteBinaryPath = path.join(process.cwd(), "bin", "yt-dlp_linux");
 const youtubedl = createYoutubeDl(absoluteBinaryPath);
 
 interface RequestBody {
