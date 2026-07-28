@@ -72,12 +72,20 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // Extract metadata JSON from yt-dlp without downloading video
     const info = await youtubedl(url, {
       dumpSingleJson: true,
+      writeSub: true,
+      writeAutoSub: true,
+      skipDownload: true,
       noWarnings: true,
       noCheckCertificates: true,
       preferFreeFormats: true,
-      // addHeader: ["referer:youtube.com", "user-agent:googlebot"],
-      // This line pulls your proxy configuration from Vercel
-      proxy: process.env.YT_PROXY_URL,
+
+      // Instruct yt-dlp to use mobile app player clients (bypasses standard Web Bot challenges)
+      extractorArgs: "youtube:player_client=android,ios,mweb",
+
+      addHeader: [
+        "referer:https://m.youtube.com",
+        "user-agent:Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
+      ],
     });
     // Structure manual and auto-generated subtitles cleanly
     const responseData: ProcessedSubtitlesResponse = {
