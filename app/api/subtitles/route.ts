@@ -1,8 +1,17 @@
+import { execSync } from "child_process";
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
-
+import fs from "fs";
 const { create: createYoutubeDl } = require("youtube-dl-exec");
 const absoluteBinaryPath = path.join(process.cwd(), "bin", "yt-dlp_linux");
+// Ensure executable permission in Linux/Vercel serverless environment
+if (process.platform !== "win32" && fs.existsSync(absoluteBinaryPath)) {
+  try {
+    execSync(`chmod +x "${absoluteBinaryPath}"`);
+  } catch (err) {
+    console.warn("Could not set chmod execution permission on binary:", err);
+  }
+}
 const youtubedl = createYoutubeDl(absoluteBinaryPath);
 
 interface RequestBody {
