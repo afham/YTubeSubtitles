@@ -97,6 +97,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       noCheckCertificates: true,
       cookies: writableCookiePath,
       forceIpv4: true,
+      // Fix 1: Force TV/Android clients which bypass web bot verification
+      extractorArgs: "youtube:player_client=tv,android",
     };
 
     const info = await youtubedl(url, options);
