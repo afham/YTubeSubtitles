@@ -1,17 +1,9 @@
-import { execSync } from "child_process";
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
-import fs from "fs";
+
 const { create: createYoutubeDl } = require("youtube-dl-exec");
 const absoluteBinaryPath = path.join(process.cwd(), "bin", "yt-dlp_linux");
-// Ensure executable permission in Linux/Vercel serverless environment
-if (process.platform !== "win32" && fs.existsSync(absoluteBinaryPath)) {
-  try {
-    execSync(`chmod +x "${absoluteBinaryPath}"`);
-  } catch (err) {
-    console.warn("Could not set chmod execution permission on binary:", err);
-  }
-}
+const cookieFilePath = path.join(process.cwd(), "lib", "cookies.txt");
 const youtubedl = createYoutubeDl(absoluteBinaryPath);
 
 interface RequestBody {
@@ -78,14 +70,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       noWarnings: true,
       noCheckCertificates: true,
       preferFreeFormats: true,
-
-      // Instruct yt-dlp to use mobile app player clients (bypasses standard Web Bot challenges)
-      extractorArgs: "youtube:player_client=android,ios,mweb",
-
-      addHeader: [
-        "referer:https://m.youtube.com",
-        "user-agent:Mozilla/5.0 (iPhone; CPU iPhone OS 17_5 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.5 Mobile/15E148 Safari/604.1",
-      ],
+      cookies: cookieFilePath,
+      addHeader: ["referer:youtube.com", "user-agent:googlebot"],
     });
     // Structure manual and auto-generated subtitles cleanly
     const responseData: ProcessedSubtitlesResponse = {

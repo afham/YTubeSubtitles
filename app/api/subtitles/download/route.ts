@@ -5,7 +5,7 @@ import os from "os";
 
 // Initialize youtube-dl-exec
 const { create: createYoutubeDl } = require("youtube-dl-exec");
-const absoluteBinaryPath = path.join(process.cwd(), "bin", "yt-dlp_linux");
+const absoluteBinaryPath = path.join(process.cwd(), "bin", "yt-dlp.exe");
 const youtubedl = createYoutubeDl(absoluteBinaryPath);
 
 interface DownloadRequestBody {
@@ -59,9 +59,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
         noWarnings: true,
         noCheckCertificates: true,
       },
-      {
-        signal: controller.signal, // Kills yt-dlp if it takes longer than 12s
-      },
+      //   {
+      //     signal: controller.signal, // Kills yt-dlp if it takes longer than 12s
+      //   },
     );
 
     clearTimeout(timeoutId);
