@@ -88,17 +88,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // 4. Configure yt-dlp with the writable cookie path
     const options: Record<string, any> = {
       dumpSingleJson: true,
+      skipDownload: true,
+      ignoreNoFormatsError: true,
       writeSub: true,
       writeAutoSub: true,
-      skipDownload: true, // Tells yt-dlp NOT to download video files
-      ignoreNoFormatsError: true, // CRITICAL: Ignores missing video formats for subtitles
+      allSubtitles: true, // Ensures ALL available captions are parsed into metadata
+      subLangs: "all", // Asks YouTube to include every language track
       noWarnings: true,
       noCheckCertificates: true,
-      cookies: writableCookiePath, // Uses writable /tmp cookie file
-
-      // FIX: Use ios & android clients (which support subtitle tracks)
-      // while avoiding the standard desktop web client bot challenge
-      extractorArgs: "youtube:player_client=ios,android,mweb;lang=en",
+      cookies: writableCookiePath, // Valid authenticated cookie path
     };
 
     const info = await youtubedl(url, options);
