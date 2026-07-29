@@ -92,10 +92,11 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ignoreNoFormatsError: true,
       writeSub: true,
       writeAutoSub: true,
-
+      subLangs: "all,-live_chat", // FIX: Tells yt-dlp to grab all subtitle languages
       noWarnings: true,
       noCheckCertificates: true,
-      cookies: writableCookiePath, // Valid authenticated cookie path
+      cookies: writableCookiePath, // Pass the writable /tmp cookie file
+      extractorArgs: "youtube:player_client=mweb,ios", // Keeps web/iOS clients for full caption manifests
     };
 
     const info = await youtubedl(url, options);
