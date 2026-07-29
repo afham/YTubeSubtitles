@@ -91,9 +91,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       skipDownload: true,
       ignoreNoFormatsError: true,
 
-      // CRITICAL: Must include BOTH writesubtitles and writeautomaticsub
-      writesubtitles: true,
-      writeautomaticsub: true,
+      writeSub: true,
+      writeAutoSub: true,
       subLangs: "all",
 
       noWarnings: true,
