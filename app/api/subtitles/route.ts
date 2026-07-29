@@ -95,6 +95,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       noCheckCertificates: true,
       preferFreeFormats: true,
       cookies: writableCookiePath, // Use the writable /tmp path!
+      // CRITICAL FIX: Bypass YouTube's Web bot checks by simulating mobile/TV clients
+      extractorArgs: "youtube:player_client=android_vr,tv_downgraded,mweb",
     };
 
     const info = await youtubedl(url, options);
