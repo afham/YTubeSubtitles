@@ -98,7 +98,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       noWarnings: true,
       noCheckCertificates: true,
       cookies: writableCookiePath,
-      extractorArgs: "youtube:player_client=android,ios,mweb,web_creator,tv",
+      extractorArgs: "youtube:player_client=all",
     };
 
     const info = await youtubedl(url, options);
