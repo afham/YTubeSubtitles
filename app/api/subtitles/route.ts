@@ -88,17 +88,23 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     // 4. Configure yt-dlp with the writable cookie path
     const options: Record<string, any> = {
       dumpSingleJson: true,
-      skipDownload: true,
-      ignoreNoFormatsError: true,
-
-      writeSubs: true,
-      writeAutoSubs: true,
-      subLangs: "all",
-
       noWarnings: true,
       noCheckCertificates: true,
+      preferFreeFormats: true,
       cookies: writableCookiePath,
-      extractorArgs: "youtube:player_client=mweb,ios",
+      addHeader: ["referer:youtube.com", "user-agent:googlebot"],
+      // dumpSingleJson: true,
+      // skipDownload: true,
+      // ignoreNoFormatsError: true,
+
+      // writeSubs: true,
+      // writeAutoSubs: true,
+      // subLangs: "all",
+
+      // noWarnings: true,
+      // noCheckCertificates: true,
+      // cookies: writableCookiePath,
+      // extractorArgs: "youtube:player_client=mweb,ios",
     };
 
     const info = await youtubedl(url, options);
