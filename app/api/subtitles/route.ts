@@ -96,6 +96,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       noWarnings: true,
       noCheckCertificates: true,
       cookies: writableCookiePath,
+      forceIpv4: true,
     };
 
     const info = await youtubedl(url, options);
