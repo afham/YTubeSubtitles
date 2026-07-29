@@ -91,15 +91,15 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       skipDownload: true,
       ignoreNoFormatsError: true,
 
-      // CRITICAL: Must use camelCase options that maps directly to yt-dlp flags
+      // CRITICAL: Must include BOTH writesubtitles and writeautomaticsub
+      writesubtitles: true,
+      writeautomaticsub: true,
       subLangs: "all",
 
       noWarnings: true,
       noCheckCertificates: true,
       cookies: writableCookiePath,
-
-      // Ensures YouTube returns both official and auto-generated timedtext tracks
-      extractorArgs: "youtube:player_client=mweb,android;lang=en",
+      extractorArgs: "youtube:player_client=mweb,ios",
     };
 
     const info = await youtubedl(url, options);
