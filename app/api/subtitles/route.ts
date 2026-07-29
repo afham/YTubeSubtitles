@@ -90,15 +90,12 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       dumpSingleJson: true,
       skipDownload: true,
       ignoreNoFormatsError: true,
-
       writeSubs: true,
       writeAutoSubs: true,
       subLangs: "all",
-
       noWarnings: true,
       noCheckCertificates: true,
       cookies: writableCookiePath,
-      extractorArgs: "youtube:player_client=android,ios",
     };
 
     const info = await youtubedl(url, options);
