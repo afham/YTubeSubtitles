@@ -1,3 +1,4 @@
+import { execSync } from "child_process";
 import { NextRequest, NextResponse } from "next/server";
 import path from "path";
 import fs from "fs";
@@ -5,7 +6,20 @@ import os from "os";
 
 // Initialize youtube-dl-exec
 const { create: createYoutubeDl } = require("youtube-dl-exec");
-const absoluteBinaryPath = path.join(process.cwd(), "bin", "yt-dlp.exe");
+
+// Determine binary name dynamically based on OS
+const binaryName = process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp_linux";
+const absoluteBinaryPath = path.join(process.cwd(), "bin", binaryName);
+
+// Set execution permissions on Linux/Vercel
+if (process.platform !== "win32" && fs.existsSync(absoluteBinaryPath)) {
+  try {
+    execSync(`chmod +x "${absoluteBinaryPath}"`);
+  } catch (err) {
+    console.warn("Could not set chmod execution permission on binary:", err);
+  }
+}
+
 const youtubedl = createYoutubeDl(absoluteBinaryPath);
 
 interface DownloadRequestBody {
@@ -40,33 +54,45 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
     tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "yt-sub-"));
     const outputTemplate = path.join(tempDir, "sub");
 
-    // 1. Create a 12-second AbortController signal
+    // 2. Prepare writable cookie file in /tmp
+    const sourceCookiePath = path.join(process.cwd(), "lib", "cookies.txt");
+    const writableCookiePath = path.join("/tmp", "cookies.txt");
+
+    if (fs.existsSync(sourceCookiePath)) {
+      fs.copyFileSync(sourceCookiePath, writableCookiePath);
+    } else if (process.env.YOUTUBE_COOKIES_TXT) {
+      fs.writeFileSync(writableCookiePath, process.env.YOUTUBE_COOKIES_TXT);
+    }
+
+    // 3. Create a 15-second AbortController signal
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), 15000);
 
-    // 2. Call yt-dlp pointing output to tempDir instead of stdout (-)
-    await youtubedl(
-      videoUrl,
-      {
-        writeSub: !isAuto,
-        writeAutoSub: isAuto,
-        subLangs: langCode,
-        subFormat: ext,
-        skipDownload: true,
-        forceIpv4: true,
-        sleepSubtitles: 5,
-        output: outputTemplate, // Output template: C:\Users\...\Temp\yt-sub-xxx\sub
-        noWarnings: true,
-        noCheckCertificates: true,
-      },
-      //   {
-      //     signal: controller.signal, // Kills yt-dlp if it takes longer than 12s
-      //   },
-    );
+    // 4. Configure options for subtitle downloading
+    const options: Record<string, any> = {
+      writeSub: !isAuto,
+      writeAutoSub: isAuto,
+      subLangs: langCode,
+      subFormat: ext,
+      skipDownload: true,
+      ignoreNoFormatsError: true, // Prevents format check failures when downloading subs
+      forceIpv4: true,
+      sleepSubtitles: 2,
+      output: outputTemplate,
+      noWarnings: true,
+      noCheckCertificates: true,
+      cookies: writableCookiePath, // Pass the writable /tmp cookie file
+      extractorArgs: "youtube:player_client=android_vr,tv_downgraded,mweb", // Bypass bot challenges
+    };
+
+    // 5. Call yt-dlp pointing output to tempDir
+    await youtubedl(videoUrl, options, {
+      signal: controller.signal,
+    });
 
     clearTimeout(timeoutId);
 
-    // 3. Find the downloaded subtitle file inside the temp folder
+    // 6. Find the downloaded subtitle file inside the temp folder
     const files = fs.readdirSync(tempDir);
     const subtitleFilename = files.find(
       (f) => f.endsWith(`.${ext}`) || f.includes(`.${langCode}.`),
@@ -79,14 +105,14 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       );
     }
 
-    // 4. Read the content of the file directly into memory
+    // 7. Read the content of the file directly into memory
     const filePath = path.join(tempDir, subtitleFilename);
     const subtitleContent = fs.readFileSync(filePath, "utf-8");
 
     const safeTitle = videoTitle.replace(/[^a-zA-Z0-9_-]/g, "_");
     const filename = `${safeTitle}_${langCode}.${ext}`;
 
-    // 5. Stream the string response back to the client
+    // 8. Stream the string response back to the client
     return new NextResponse(subtitleContent, {
       status: 200,
       headers: {
@@ -102,7 +128,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       { status: 500 },
     );
   } finally {
-    // 6. Automatically delete the temp folder and contents after reading
+    // 9. Automatically delete the temp folder and contents after reading
     if (tempDir && fs.existsSync(tempDir)) {
       try {
         fs.rmSync(tempDir, { recursive: true, force: true });
