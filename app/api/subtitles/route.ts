@@ -92,8 +92,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       ignoreNoFormatsError: true,
       writeSub: true,
       writeAutoSub: true,
-      allSubtitles: true, // Ensures ALL available captions are parsed into metadata
-      subLangs: "all", // Asks YouTube to include every language track
+
       noWarnings: true,
       noCheckCertificates: true,
       cookies: writableCookiePath, // Valid authenticated cookie path
