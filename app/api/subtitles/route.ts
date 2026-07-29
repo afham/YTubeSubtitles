@@ -90,13 +90,16 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       dumpSingleJson: true,
       skipDownload: true,
       ignoreNoFormatsError: true,
-      writeSub: true,
-      writeAutoSub: true,
-      subLangs: "all,-live_chat", // FIX: Tells yt-dlp to grab all subtitle languages
+
+      // CRITICAL: Must use camelCase options that maps directly to yt-dlp flags
+      subLangs: "all",
+
       noWarnings: true,
       noCheckCertificates: true,
-      cookies: writableCookiePath, // Pass the writable /tmp cookie file
-      extractorArgs: "youtube:player_client=mweb,ios", // Keeps web/iOS clients for full caption manifests
+      cookies: writableCookiePath,
+
+      // Ensures YouTube returns both official and auto-generated timedtext tracks
+      extractorArgs: "youtube:player_client=mweb,android;lang=en",
     };
 
     const info = await youtubedl(url, options);
