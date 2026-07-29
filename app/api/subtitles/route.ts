@@ -91,8 +91,8 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       skipDownload: true,
       ignoreNoFormatsError: true,
 
-      writeSub: true,
-      writeAutoSub: true,
+      writeSubs: true,
+      writeAutoSubs: true,
       subLangs: "all",
 
       noWarnings: true,
