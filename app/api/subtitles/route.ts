@@ -96,8 +96,9 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       noCheckCertificates: true,
       cookies: writableCookiePath, // Uses writable /tmp cookie file
 
-      // Forces mobile/TV player clients that bypass YouTube's datacenter bot challenge
-      extractorArgs: "youtube:player_client=android_vr,tv_downgraded,mweb",
+      // FIX: Use ios & android clients (which support subtitle tracks)
+      // while avoiding the standard desktop web client bot challenge
+      extractorArgs: "youtube:player_client=ios,android,mweb;lang=en",
     };
 
     const info = await youtubedl(url, options);
