@@ -93,6 +93,7 @@ export async function POST(request: NextRequest): Promise<NextResponse> {
       preferFreeFormats: true,
       cookies: writableCookiePath,
       addHeader: ["referer:youtube.com", "user-agent:googlebot"],
+      extractorArgs: "youtube:player_client=mweb,ios",
       // dumpSingleJson: true,
       // skipDownload: true,
       // ignoreNoFormatsError: true,
