@@ -1,140 +1,157 @@
-import { execSync } from "child_process";
+// app/api/subtitles/download/route.ts
+
 import { NextRequest, NextResponse } from "next/server";
-import path from "path";
-import fs from "fs";
-import os from "os";
+import { YoutubeTranscript } from "youtube-transcript";
 
-// Initialize youtube-dl-exec
-const { create: createYoutubeDl } = require("youtube-dl-exec");
+interface SubtitleCue {
+  start: number;
+  duration: number;
+  text: string;
+}
 
-// Determine binary name dynamically based on OS
-const binaryName = process.platform === "win32" ? "yt-dlp.exe" : "yt-dlp_linux";
-const absoluteBinaryPath = path.join(process.cwd(), "bin", binaryName);
+function extractVideoId(urlOrId: string): string | null {
+  if (!urlOrId) return null;
+  if (urlOrId.length === 11 && !urlOrId.includes("/")) return urlOrId;
+  const match = urlOrId.match(
+    /(?:youtube\.com\/(?:[^\/]+\/.+\/|(?:v|e(?:mbed)?)\/|.*[?&]v=)|youtu\.be\/|youtube\.com\/shorts\/)([^"&?\/\s]{11})/,
+  );
+  return match ? match[1] : null;
+}
 
-// Set execution permissions on Linux/Vercel
-if (process.platform !== "win32" && fs.existsSync(absoluteBinaryPath)) {
-  try {
-    execSync(`chmod +x "${absoluteBinaryPath}"`);
-  } catch (err) {
-    console.warn("Could not set chmod execution permission on binary:", err);
+function formatTimeSRT(seconds: number): string {
+  const totalMs = Math.round(seconds * 1000);
+  const ms = Math.floor(totalMs % 1000)
+    .toString()
+    .padStart(3, "0");
+  const totalSeconds = Math.floor(totalMs / 1000);
+  const ss = (totalSeconds % 60).toString().padStart(2, "0");
+  const mm = Math.floor((totalSeconds / 60) % 60)
+    .toString()
+    .padStart(2, "0");
+  const hh = Math.floor(totalSeconds / 3600)
+    .toString()
+    .padStart(2, "0");
+  return `${hh}:${mm}:${ss},${ms}`;
+}
+
+function formatTimeVTT(seconds: number): string {
+  return formatTimeSRT(seconds).replace(",", ".");
+}
+
+function convertCuesToFormat(cues: SubtitleCue[], format: string): string {
+  if (!cues || cues.length === 0) {
+    return "";
   }
+
+  const ext = format.toLowerCase();
+
+  if (ext === "json") {
+    return JSON.stringify(cues, null, 2);
+  }
+
+  if (ext === "txt") {
+    return cues.map((c) => c.text).join("\n");
+  }
+
+  if (ext === "srt") {
+    return cues
+      .map((cue, idx) => {
+        const start = formatTimeSRT(cue.start);
+        const end = formatTimeSRT(cue.start + cue.duration);
+        return `${idx + 1}\n${start} --> ${end}\n${cue.text}\n`;
+      })
+      .join("\n");
+  }
+
+  if (ext === "vtt") {
+    const vttBody = cues
+      .map((cue) => {
+        const start = formatTimeVTT(cue.start);
+        const end = formatTimeVTT(cue.start + cue.duration);
+        return `${start} --> ${end}\n${cue.text}`;
+      })
+      .join("\n\n");
+    return `WEBVTT\n\n${vttBody}`;
+  }
+
+  return cues.map((c) => c.text).join("\n");
 }
 
-const youtubedl = createYoutubeDl(absoluteBinaryPath);
-
-interface DownloadRequestBody {
-  videoUrl: string;
-  langCode: string;
-  ext?: string;
-  isAuto?: boolean;
-  videoTitle?: string;
-}
-
-export async function POST(request: NextRequest): Promise<NextResponse> {
-  // Declare tempDir in outer scope so it's accessible in the finally block
-  let tempDir: string | null = null;
-
+export async function POST(request: NextRequest) {
   try {
-    const {
-      videoUrl,
-      langCode,
-      ext = "vtt",
-      isAuto = false,
-      videoTitle = "subtitle",
-    } = (await request.json()) as DownloadRequestBody;
+    const body = await request.json();
+    const { videoUrl, langCode, ext, videoTitle } = body;
 
-    if (!videoUrl || !langCode) {
+    const videoId = extractVideoId(videoUrl);
+
+    if (!videoId) {
       return NextResponse.json(
-        { error: "videoUrl and langCode are required" },
+        { error: "Invalid YouTube Video ID or URL" },
         { status: 400 },
       );
     }
 
-    // 1. Create a unique temporary directory in OS temp space
-    tempDir = fs.mkdtempSync(path.join(os.tmpdir(), "yt-sub-"));
-    const outputTemplate = path.join(tempDir, "sub");
+    let cues: SubtitleCue[] = [];
 
-    // 2. Prepare writable cookie file in /tmp
-    const sourceCookiePath = path.join(process.cwd(), "lib", "cookies.txt");
-    const writableCookiePath = path.join("/tmp", "cookies.txt");
+    try {
+      const rawTranscript = await YoutubeTranscript.fetchTranscript(videoId, {
+        lang: langCode || "en",
+      });
 
-    if (fs.existsSync(sourceCookiePath)) {
-      fs.copyFileSync(sourceCookiePath, writableCookiePath);
-    } else if (process.env.YOUTUBE_COOKIES_TXT) {
-      fs.writeFileSync(writableCookiePath, process.env.YOUTUBE_COOKIES_TXT);
+      cues = rawTranscript.map((item) => ({
+        start: item.offset / 1000,
+        duration: item.duration / 1000,
+        text: item.text
+          .replace(/&amp;/g, "&")
+          .replace(/&lt;/g, "<")
+          .replace(/&gt;/g, ">")
+          .replace(/&#39;/g, "'")
+          .replace(/&quot;/g, '"')
+          .trim(),
+      }));
+    } catch (e: any) {
+      // If requested language failed, try generic default fetch
+      try {
+        const fallbackTranscript =
+          await YoutubeTranscript.fetchTranscript(videoId);
+        cues = fallbackTranscript.map((item) => ({
+          start: item.offset / 1000,
+          duration: item.duration / 1000,
+          text: item.text.replace(/&amp;/g, "&").replace(/&#39;/g, "'").trim(),
+        }));
+      } catch (fallbackErr: any) {
+        console.error("Transcript fetch error:", fallbackErr.message);
+      }
     }
 
-    // 3. Create a 15-second AbortController signal
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), 15000);
-
-    // 4. Configure options for subtitle downloading
-    const options: Record<string, any> = {
-      writeSub: !isAuto,
-      writeAutoSub: isAuto,
-      subLangs: langCode,
-      subFormat: ext,
-      skipDownload: true,
-      ignoreNoFormatsError: true, // Prevents format check failures when downloading subs
-      forceIpv4: true,
-      sleepSubtitles: 2,
-      output: outputTemplate,
-      noWarnings: true,
-      noCheckCertificates: true,
-      cookies: writableCookiePath, // Pass the writable /tmp cookie file
-      extractorArgs: "youtube:player_client=android_vr,tv_downgraded,mweb", // Bypass bot challenges
-    };
-
-    // 5. Call yt-dlp pointing output to tempDir
-    await youtubedl(videoUrl, options, {
-      signal: controller.signal,
-    });
-
-    clearTimeout(timeoutId);
-
-    // 6. Find the downloaded subtitle file inside the temp folder
-    const files = fs.readdirSync(tempDir);
-    const subtitleFilename = files.find(
-      (f) => f.endsWith(`.${ext}`) || f.includes(`.${langCode}.`),
-    );
-
-    if (!subtitleFilename) {
+    if (cues.length === 0) {
       return NextResponse.json(
-        { error: "Subtitle content empty or not found" },
-        { status: 404 },
+        { error: `No subtitle cues found for language "${langCode}".` },
+        { status: 444 },
       );
     }
 
-    // 7. Read the content of the file directly into memory
-    const filePath = path.join(tempDir, subtitleFilename);
-    const subtitleContent = fs.readFileSync(filePath, "utf-8");
+    const content = convertCuesToFormat(cues, ext || "srt");
 
-    const safeTitle = videoTitle.replace(/[^a-zA-Z0-9_-]/g, "_");
-    const filename = `${safeTitle}_${langCode}.${ext}`;
+    const safeTitle = (videoTitle || videoId).replace(/[^a-zA-Z0-9_-]/g, "_");
+    const filename = `${safeTitle}_${langCode}.${ext || "srt"}`;
 
-    // 8. Stream the string response back to the client
-    return new NextResponse(subtitleContent, {
+    const headers = new Headers();
+    headers.set("Content-Type", "application/octet-stream; charset=utf-8");
+    headers.set(
+      "Content-Disposition",
+      `attachment; filename="${encodeURIComponent(filename)}"`,
+    );
+
+    return new NextResponse(content, {
       status: 200,
-      headers: {
-        "Content-Type": "text/plain; charset=utf-8",
-        "Content-Disposition": `attachment; filename="${filename}"`,
-      },
+      headers,
     });
-  } catch (error) {
-    console.error("Subtitle Download Error:", error);
-
+  } catch (error: any) {
+    console.error("Download endpoint error:", error);
     return NextResponse.json(
-      { error: "Failed to process subtitle download via yt-dlp" },
+      { error: error.message || "Failed to download subtitle track" },
       { status: 500 },
     );
-  } finally {
-    // 9. Automatically delete the temp folder and contents after reading
-    if (tempDir && fs.existsSync(tempDir)) {
-      try {
-        fs.rmSync(tempDir, { recursive: true, force: true });
-      } catch (cleanupError) {
-        console.error("Error removing temp folder:", cleanupError);
-      }
-    }
   }
 }
