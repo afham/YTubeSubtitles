@@ -141,7 +141,7 @@ export default function Page() {
               href="/terms"
               className="hover:text-zinc-900 dark:hover:text-zinc-200 transition-colors"
             >
-              Terms of Service
+              Terms of Services
             </a>
             <a
               href="/contact"

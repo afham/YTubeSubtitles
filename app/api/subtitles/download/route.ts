@@ -39,19 +39,11 @@ function formatTimeVTT(seconds: number): string {
 }
 
 function convertCuesToFormat(cues: SubtitleCue[], format: string): string {
-  if (!cues || cues.length === 0) {
-    return "";
-  }
-
+  if (!cues || cues.length === 0) return "";
   const ext = format.toLowerCase();
 
-  if (ext === "json") {
-    return JSON.stringify(cues, null, 2);
-  }
-
-  if (ext === "txt") {
-    return cues.map((c) => c.text).join("\n");
-  }
+  if (ext === "json") return JSON.stringify(cues, null, 2);
+  if (ext === "txt") return cues.map((c) => c.text).join("\n");
 
   if (ext === "srt") {
     return cues
@@ -93,6 +85,7 @@ export async function POST(request: NextRequest) {
 
     let cues: SubtitleCue[] = [];
 
+    // Attempt 1: Fetch using youtube-transcript with specific langCode
     try {
       const rawTranscript = await YoutubeTranscript.fetchTranscript(videoId, {
         lang: langCode || "en",
@@ -109,8 +102,8 @@ export async function POST(request: NextRequest) {
           .replace(/&quot;/g, '"')
           .trim(),
       }));
-    } catch (e: any) {
-      // If requested language failed, try generic default fetch
+    } catch (_) {
+      // Attempt 2: Fallback to default fetch if target language failed
       try {
         const fallbackTranscript =
           await YoutubeTranscript.fetchTranscript(videoId);
@@ -119,20 +112,19 @@ export async function POST(request: NextRequest) {
           duration: item.duration / 1000,
           text: item.text.replace(/&amp;/g, "&").replace(/&#39;/g, "'").trim(),
         }));
-      } catch (fallbackErr: any) {
-        console.error("Transcript fetch error:", fallbackErr.message);
+      } catch (e: any) {
+        console.error("Transcript fetch error:", e.message);
       }
     }
 
     if (cues.length === 0) {
       return NextResponse.json(
         { error: `No subtitle cues found for language "${langCode}".` },
-        { status: 444 },
+        { status: 404 },
       );
     }
 
     const content = convertCuesToFormat(cues, ext || "srt");
-
     const safeTitle = (videoTitle || videoId).replace(/[^a-zA-Z0-9_-]/g, "_");
     const filename = `${safeTitle}_${langCode}.${ext || "srt"}`;
 
@@ -143,12 +135,9 @@ export async function POST(request: NextRequest) {
       `attachment; filename="${encodeURIComponent(filename)}"`,
     );
 
-    return new NextResponse(content, {
-      status: 200,
-      headers,
-    });
+    return new NextResponse(content, { status: 200, headers });
   } catch (error: any) {
-    console.error("Download endpoint error:", error);
+    console.error("Download error:", error);
     return NextResponse.json(
       { error: error.message || "Failed to download subtitle track" },
       { status: 500 },
